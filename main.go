@@ -5,17 +5,23 @@ import (
 	"fmt"
 	"os"
 	"stockfish/model"
+	"stockfish/positions"
 )
 
 var (
-	// txtInput   = "positions/txt/960positions.txt"
-	jsonOutput = "positions/json/960positions.json"
+	//txtInput         = "positions/txt/960positions.txt"
+	jsonOutput       = "positions/json/960positions.json"
+	firstMovesOutput = "output/firstmoves.json"
 )
+
+type analysis struct {
+	frequencies map[string]string
+}
 
 func main() {
 
 	// Create json with FEN positions
-	// positions.ParseFEN(txtInput, jsonOutput)
+	//positions.ParseFEN(txtInput, jsonOutput)
 
 	// Load positions
 	fischerRandomPositions, err := loadPositions(jsonOutput)
@@ -29,16 +35,24 @@ func main() {
 	}
 	defer engine.Close()
 
-	for index, position := range fischerRandomPositions {
-		if index < 3 {
-			bestMove, eval, err := engine.getTopMoves(position.FEN, 2) // Analyze to depth 20
-			check(err)
+	var positionsWithEval []model.ChessPosition
 
-			fmt.Println(position.FEN[:8])
-			fmt.Printf("Best moves: %s Eval: %.2f\n\n", bestMove, eval)
-		}
+	for index, position := range fischerRandomPositions {
+		//if index < 3 {
+		bestMoves, eval, err := engine.getTopMoves(position.FEN, 2) // Analyze to depth 20
+		check(err)
+
+		position.TopMoves = bestMoves
+		position.Eval = eval
+		positionsWithEval = append(positionsWithEval, position)
+
+		fmt.Println(index, position.FEN[:8])
+		fmt.Printf("Best moves: %s Eval: %.2f\n\n", bestMoves, eval)
+		//}
 	}
 
+	//fmt.Println(fischerRandomPositions)
+	positions.WriteOutput(firstMovesOutput, positionsWithEval)
 }
 
 func loadPositions(filename string) ([]model.ChessPosition, error) {

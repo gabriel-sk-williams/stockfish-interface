@@ -18,8 +18,6 @@ type parser struct {
 }
 
 func ParseFEN(txtInput string, jsonOutput string) {
-	fmt.Println("parsing", txtInput)
-
 	file, err := os.Open(txtInput)
 	check(err)
 
@@ -34,12 +32,13 @@ func ParseFEN(txtInput string, jsonOutput string) {
 	p := parser{s: s.Init(r)}
 	p.parse(fileName)
 
+	WriteOutput(jsonOutput, p.positions)
+}
+
+func WriteOutput(jsonOutput string, object any) {
 	// Write positions to JSON file
 	outputFile, err := os.Create(jsonOutput)
-	if err != nil {
-		fmt.Println("Error creating output file:", err)
-		return
-	}
+	check(err)
 	defer outputFile.Close()
 
 	// Create JSON encoder with pretty printing
@@ -47,13 +46,12 @@ func ParseFEN(txtInput string, jsonOutput string) {
 	encoder.SetIndent("", "  ")
 
 	// Encode and write positions
-	if err := encoder.Encode(p.positions); err != nil {
+	if err := encoder.Encode(object); err != nil {
 		fmt.Println("Error encoding JSON:", err)
 		return
 	}
 
-	fmt.Printf("Successfully processed %d positions\n", len(p.positions))
-
+	fmt.Printf("Successfully processed %s positions\n", jsonOutput)
 }
 
 // parse walks the document and renders elements to a cell buffer document.

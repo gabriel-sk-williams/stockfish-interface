@@ -31,14 +31,11 @@ func main() {
 
 	for index, position := range fischerRandomPositions {
 		if index < 3 {
-			fmt.Println(position.FEN)
-			// Get best move
-			bestMove, score, err := engine.getBestMove(position.FEN, 20) // Analyze to depth 20
-			if err != nil {
-				fmt.Println("Error getting best move:", err)
-				return
-			}
-			fmt.Printf("Best move: %s (Score: %.2f)\n", bestMove, score)
+			bestMove, eval, err := engine.getTopMoves(position.FEN, 2) // Analyze to depth 20
+			check(err)
+
+			fmt.Println(position.FEN[:8])
+			fmt.Printf("Best moves: %s Eval: %.2f\n\n", bestMove, eval)
 		}
 	}
 

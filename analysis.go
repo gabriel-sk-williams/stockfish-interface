@@ -1,5 +1,10 @@
 package main
 
+import (
+	"fmt"
+	"stockfish/model"
+)
+
 const (
 	a = iota
 	b
@@ -23,6 +28,52 @@ var (
 		"h": h,
 	}
 )
+
+func AnalyzeTopMoves() {
+
+	evalPositions, err := loadTopMovesEvals(topMovesOutput)
+	check(err)
+
+	p1Moves := model.CreateAnalysis()
+	p2Moves := model.CreateAnalysis()
+	knightMoves := model.CreateAnalysis()
+	p2CenterMoves := model.CreateCenterFileAnalaysis()
+	p2CenterPieces := model.CreateCenterFileAnalaysis()
+
+	for _, position := range evalPositions {
+
+		layout := position.FEN[:8]
+
+		for _, move := range position.TopMoves {
+			code, dtc, base, sf, bp := getStats(move, layout)
+
+			if code == "p1" {
+				p1Moves.FindCase(base, sf)
+			}
+			if code == "p2" {
+				p2Moves.FindCase(base, sf)
+			}
+			if code == "knight" {
+				knightMoves.FindCase(base, sf)
+			}
+
+			if code == "p2" && dtc < 3 {
+				p2CenterMoves.FindFile(base, sf)
+				p2CenterMoves.FindFile(bp, sf)
+			}
+
+			if bp == "n" && (sf == "d" || sf == "e") {
+				fmt.Println(base)
+			}
+		}
+	}
+
+	knightMoves.ShowAnalysis()
+	p1Moves.ShowAnalysis()
+	p2Moves.ShowAnalysis()
+	p2CenterMoves.ShowCenterFileAnalysis()
+	p2CenterPieces.ShowCenterFileAnalysis()
+}
 
 func getStats(move string, layout string) (string, int, string, string, string) {
 

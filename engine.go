@@ -6,13 +6,12 @@ import (
 	"io"
 	"os/exec"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
 var (
 	stockfishLocation = "/mnt/ssd/env/stockfish/src/stockfish"
-	depth             = 20
+	depth             = 42
 	timeMs            = 8000
 	threads           = 14
 	RAM               = 8192
@@ -81,39 +80,75 @@ func (engine *StockfishEngine) Close() error {
 	return engine.cmd.Wait()
 }
 
-// getBestMove gets the best move for a given position from Stockfish
-func (engine *StockfishEngine) getBestMove(fen string) (string, string, error) {
-	// Set the position using the FEN string
+func (engine *StockfishEngine) getBestMoveAdvanced(fen string) (string, float64, []string, error) {
+	// Set the position
 	engine.sendCommand(fmt.Sprintf("position fen %s", fen))
 
-	// Start the analysis
-	//engine.sendCommand(fmt.Sprintf("go depth %d", depth))
+	// Start analysis with both depth and time constraints
 	engine.sendCommand(fmt.Sprintf("go depth %d movetime %d", depth, timeMs))
 
 	bestMove := ""
-	var eval string
 	var score float64
+	var lastDepthScore float64 = 0.0
+	var lastDepthSeen int = 0
+	// var principalVariation []string
+	variations := make(map[string][]string)
 
 	// Wait for "bestmove" response
 	for engine.stdout.Scan() {
 		text := engine.stdout.Text()
+		//fmt.Println(text)
 
-		// Look for info depth <depth> ... score cp <score> ...
-		if strings.Contains(text, fmt.Sprintf("depth %d", depth)) && strings.Contains(text, "score") {
-			// Parse the score
-			scoreRegex := regexp.MustCompile(`score (cp|mate) (-?\d+)`)
-			scoreMatches := scoreRegex.FindStringSubmatch(text)
+		// Look for info depth lines
+		if strings.Contains(text, "info depth") && strings.Contains(text, "score") {
 
-			if len(scoreMatches) >= 3 {
-				if scoreMatches[1] == "cp" { // Convert centipawn score to pawns
-					fmt.Sscanf(scoreMatches[2], "%f", &score)
-					score = score / 100.0
-					fmt.Println(score)
-					eval = strconv.FormatFloat(score, 'f', -1, 64)
-				} else if scoreMatches[1] == "mate" {
-					var mateIn int
-					fmt.Sscanf(scoreMatches[2], "%d", &mateIn)
-					eval = fmt.Sprintf("#%d", mateIn)
+			// Extract the principal variation (moves after "pv")
+			pvIndex := strings.Index(text, " pv ")
+			if pvIndex != -1 {
+				// Get the substring starting after " pv "
+				pvString := text[pvIndex+4:]
+				currentVariation := strings.Fields(pvString)
+				firstMove := currentVariation[0]
+
+				_, exists := variations[firstMove]
+				if exists {
+					if len(currentVariation) > len(variations[firstMove]) {
+						variations[firstMove] = currentVariation
+					}
+				} else {
+					variations[firstMove] = currentVariation
+				}
+
+			}
+
+			depthRegex := regexp.MustCompile(`depth (\d+)`)
+			depthMatches := depthRegex.FindStringSubmatch(text)
+
+			if len(depthMatches) >= 2 {
+				var currentDepth int
+				fmt.Sscanf(depthMatches[1], "%d", &currentDepth)
+
+				// Parse the score for this depth
+				scoreRegex := regexp.MustCompile(`score (cp|mate) (-?\d+)`)
+				scoreMatches := scoreRegex.FindStringSubmatch(text)
+
+				if len(scoreMatches) >= 3 {
+					// Update the last depth we've seen a score for
+					lastDepthSeen = currentDepth
+
+					if scoreMatches[1] == "cp" {
+						// Convert centipawn score to pawns
+						fmt.Sscanf(scoreMatches[2], "%f", &lastDepthScore)
+						lastDepthScore = lastDepthScore / 100.0
+					} else if scoreMatches[1] == "mate" {
+						var mateIn int
+						fmt.Sscanf(scoreMatches[2], "%d", &mateIn)
+						if mateIn > 0 {
+							lastDepthScore = 999.0 // Positive mate
+						} else {
+							lastDepthScore = -999.0 // Negative mate
+						}
+					}
 				}
 			}
 		}
@@ -123,16 +158,21 @@ func (engine *StockfishEngine) getBestMove(fen string) (string, string, error) {
 			parts := strings.Fields(text)
 			if len(parts) >= 2 {
 				bestMove = parts[1]
+				// Use the score from the last depth we saw
+				score = lastDepthScore
 				break
 			}
 		}
 	}
 
 	if bestMove == "" {
-		return "", "", fmt.Errorf("failed to get best move")
+		return "", 0, nil, fmt.Errorf("failed to get best move")
 	}
 
-	return bestMove, eval, nil
+	fmt.Println(variations)
+
+	fmt.Printf("Final depth reached: %d\n", lastDepthSeen)
+	return bestMove, score, variations[bestMove], nil
 }
 
 // Updated function to return multiple moves

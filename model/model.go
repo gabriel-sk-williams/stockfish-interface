@@ -17,7 +17,7 @@ type ChessPosition struct {
 type ChessPositionBestMove struct {
 	ChessPosition
 	BestMove string   `json:"bestMove"`
-	Eval     float64  `json:"eval"` // string allows for #3 checkmate
+	Eval     float64  `json:"eval"`
 	Line     []string `json:"line"`
 }
 

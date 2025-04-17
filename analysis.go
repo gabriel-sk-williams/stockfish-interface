@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"stockfish/model"
 )
 
@@ -28,6 +29,23 @@ var (
 		"h": h,
 	}
 )
+
+func AnalyzeBestMove(location string) {
+	evp, err := loadBestMoveEvals(location)
+	check(err)
+
+	sort.Slice(evp, func(i, j int) bool {
+		return evp[i].Eval > evp[j].Eval
+	})
+
+	for index, position := range evp {
+		if index < 5 {
+			layout := position.FEN[:8]
+			fmt.Println(position.PositionNumber, layout, position.Eval)
+			fmt.Println(position.Line)
+		}
+	}
+}
 
 func AnalyzeTopMoves() {
 

@@ -15,9 +15,10 @@ var (
 
 func main() {
 
-	evalBestMove()
+	// evalBestMove()
 	// evalTopMoves()
-	// AnalyzeBestMoves
+	// AnalyzeTopMoves(topMovesOutput)
+	AnalyzeBestMove(bestMoveOutput)
 }
 
 func evalBestMove() {
